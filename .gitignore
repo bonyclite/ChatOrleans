@@ -1,0 +1,88 @@
+#Junk Files
+*.DS_Store
+[Tt]humbs.db
+
+#Visual Studio Files
+.vs
+[Oo]bj
+[Bb]in
+[Dd]ebug
+[Bb]uild/
+*.user
+*.suo
+*.exe
+*.pdb
+*.aps
+*_i.c
+*_p.c
+*.ncb
+*.tlb
+*.tlh
+*.[Cc]ache
+*.bak
+*.ncb
+*.ilk
+*.log
+*.lib
+*.sbr
+*.sdf
+ipch/ 
+*.dbmdl
+*.csproj.user
+*.cache
+*.swp
+*.vspscc
+*.vssscc
+*.bak.*
+*.bak
+
+#Tools
+_ReSharper.*
+_ReSharper*/
+*.resharper
+*.resharper.user
+*.DotSettings
+.idea
+[Nn][Dd]epend[Oo]ut*/
+Ankh.NoLoad
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+
+# StyleCop
+StyleCopReport.xml
+
+# Click-Once directory
+publish/
+
+# NuGet Packages
+*.nupkg
+# The packages folder can be ignored because of Package Restore
+**/[Pp]ackages/*
+# except build/, which is used as an MSBuild target.
+!**/[Pp]ackages/build/
+# Uncomment if necessary however generally it will be regenerated when needed
+#!**/[Pp]ackages/repositories.config
+# NuGet v3's project.json files produces more ignorable files
+*.nuget.props
+*.nuget.targets
+
+**/storage
+/Anova.API/Properties/PublishProfiles/FolderProfile.pubxml
+
+node_modules
+*.map
+/Anova/Anova.DAL/AddMigration.sh
+Anova/Anova.DAL/AddMigration.ps1
+
+
+Anova/Anova.Administration/wwwroot/js/dist/**
+Anova/Anova.Administration/src/plugins/**
+
+
+
+Anova/Anova\.Administration/wwwroot/js/dist/
+/Anova/Anova.API/Properties/launchSettings_dev.json
