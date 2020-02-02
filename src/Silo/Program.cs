@@ -29,7 +29,7 @@ namespace Silo
                             options.ServiceId = Constants.ServiceId;
                         })
                         .AddSimpleMessageStreamProvider(Constants.StreamProvider)
-                        .AddMemoryGrainStorage("Default")
+                        .AddMemoryGrainStorage("PubSubStore")
                         .UseDashboard(options =>
                         {
                             options.Username = "username";

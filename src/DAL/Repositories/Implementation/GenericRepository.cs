@@ -21,6 +21,11 @@ namespace DAL.Repositories.Implementation
             return Context.Set<TEntity>();
         }
 
+        public IQueryable<TEntity> GetAll(Expression<Func<TEntity, bool>> expression)
+        {
+            return GetAll().Where(expression);
+        }
+
         public virtual async Task<TEntity> GetById(Guid id)
         {
             return await Context.Set<TEntity>().FindAsync(id);
@@ -44,6 +49,19 @@ namespace DAL.Repositories.Implementation
         {
             var entity = await GetById(id);
             Context.Set<TEntity>().Remove(entity);
+            await Context.SaveChangesAsync();
+        }
+
+        public virtual async Task DeleteWhere(Expression<Func<TEntity, bool>> expression)
+        {
+            var entities = await GetAll(expression)
+                .ToArrayAsync();
+
+            foreach (var entity in entities)
+            {
+                Context.Entry(entity).State = EntityState.Deleted;
+            }
+
             await Context.SaveChangesAsync();
         }
 

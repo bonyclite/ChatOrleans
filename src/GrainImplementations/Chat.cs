@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Core.Extensions;
 using DAL.Repositories;
 using GrainImplementations.Observers;
 using GrainImplementations.States;
@@ -11,10 +12,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Providers;
 using Orleans.Streams;
 
 namespace GrainImplementations
 {
+    [StorageProvider(ProviderName = "PubSubStore")]
     public class Chat : Grain<ChatState>, IChat
     {
         private readonly IGenericRepository<DAL.Models.ChatModel> _chatRepository;
@@ -29,16 +32,10 @@ namespace GrainImplementations
             _messagesRepository = messagesRepository;
         }
 
-        protected override Task ReadStateAsync()
-        {
-            var d = 2;
-            return base.ReadStateAsync();
-        }
-
         public override async Task OnActivateAsync()
         {
             await FillState();
-            
+
             var streamProvider = GetStreamProvider(Constants.StreamProvider);
 
             _chatMessageStream = streamProvider.GetStream<ChatMessageModel>(this.GetPrimaryKey(),
@@ -47,7 +44,15 @@ namespace GrainImplementations
             await _chatMessageStream.SubscribeAsync(
                 new ChatMessageObserver(ServiceProvider.GetRequiredService<ILogger<ChatMessageObserver>>()));
 
+            RegisterTimer(o => SaveNewMessages(), null, TimeSpan.FromSeconds(30),TimeSpan.FromSeconds(30));
+            
             await base.OnActivateAsync();
+        }
+
+        public override async Task OnDeactivateAsync()
+        {
+            await SaveNewMessages();
+            await base.OnDeactivateAsync();
         }
 
         protected override async Task WriteStateAsync()
@@ -73,16 +78,6 @@ namespace GrainImplementations
                 await _chatRepository.Update(chat);
             }
 
-            foreach (var newMessage in State.NewMessages)
-            {
-                await _messagesRepository.Create(new DAL.Models.ChatMessageModel
-                {
-                    ChatId = this.GetPrimaryKey(),
-                    UserId = newMessage.UserId,
-                    Text = newMessage.Text
-                });
-            }
-            
             await base.WriteStateAsync();
         }
 
@@ -103,7 +98,7 @@ namespace GrainImplementations
                     UserId = Constants.SystemUserId
                 });
             }
-            
+
             State.Settings = settings;
 
             await WriteStateAsync();
@@ -131,20 +126,16 @@ namespace GrainImplementations
         public async Task SendMessage(ChatMessageModel message)
         {
             await _chatMessageStream.OnNextAsync(message);
-            
+
             State.NewMessages.Add(message);
+            State.Messages.Add(message);
         }
 
         public Task SendMessage(ChatMessageModel message, DateTime when)
         {
-            var sdf = TimeSpan.FromTicks(when.Ticks);
-            
-            var asd = TimeSpan.FromSeconds(15).Ticks;
-            var qwe = sdf.Ticks;
-            
-            RegisterTimer( o => SendMessage(o as ChatMessageModel), message, TimeSpan.FromTicks(when.Ticks), 
+            RegisterTimer(o => SendMessage(o as ChatMessageModel), message, TimeSpan.FromTicks(when.Ticks),
                 TimeSpan.FromMilliseconds(-1));
-            
+
             return Task.CompletedTask;
         }
 
@@ -156,7 +147,7 @@ namespace GrainImplementations
                 UserId = Constants.SystemUserId,
                 Text = $"'{await user.GetNickname()}' joined the chat"
             });
-            
+
             await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
@@ -167,12 +158,12 @@ namespace GrainImplementations
         public async Task Leave(IUser user)
         {
             await Disconnect(user);
-            
+
             await SendMessage(new ChatMessageModel
             {
                 User = Constants.SystemUser,
                 UserId = Constants.SystemUserId,
-                Text = $"'{user.GetPrimaryKeyString()}' leaved from chat"
+                Text = $"'{await user.GetNickname()}' leaved from chat"
             });
 
             await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
@@ -185,7 +176,7 @@ namespace GrainImplementations
         public async Task Connect(IUser user)
         {
             State.OnlineMembers.Add(user.GetPrimaryKey());
-            
+
             await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
@@ -242,10 +233,10 @@ namespace GrainImplementations
                     User = m.User.Nickname,
                     UserId = m.UserId
                 }).ToList();
-            
+
                 State.IsInitializedFirstly = false;
             }
-            
+
             State.IsInitializedFirstly = true;
         }
 
@@ -261,6 +252,21 @@ namespace GrainImplementations
             var stream = GetUserChatActionStream<T>(userId);
 
             await stream.OnNextAsync(model);
+        }
+
+        private async Task SaveNewMessages()
+        {
+            foreach (var newMessage in State.NewMessages)
+            {
+                await _messagesRepository.Create(new DAL.Models.ChatMessageModel
+                {
+                    ChatId = this.GetPrimaryKey(),
+                    UserId = newMessage.UserId,
+                    Text = newMessage.Text
+                });
+            }
+            
+            State.NewMessages.RemoveAll();
         }
     }
 }

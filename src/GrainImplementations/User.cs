@@ -1,24 +1,30 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using DAL.Models;
 using DAL.Repositories;
 using GrainImplementations.States;
 using GrainInterfaces;
 using GrainInterfaces.Models.Chat;
-using GrainInterfaces.Models.User;
 using Microsoft.EntityFrameworkCore;
 using Orleans;
+using Orleans.Providers;
 using Orleans.Streams;
+using UserModel = GrainInterfaces.Models.User.UserModel;
 
 namespace GrainImplementations
-{
+{    
+    [StorageProvider(ProviderName = "PubSubStore")]
     public class User : Grain<UserState>, IUser
     {
         private readonly IGenericRepository<DAL.Models.UserModel> _usersRepository;
+        private readonly IGenericRepository<UserChatModel> _userChatRepository;
 
-        public User(IGenericRepository<DAL.Models.UserModel> usersRepository)
+        public User(IGenericRepository<DAL.Models.UserModel> usersRepository
+            , IGenericRepository<UserChatModel> userChatRepository)
         {
             _usersRepository = usersRepository;
+            _userChatRepository = userChatRepository;
         }
         
         public override async Task OnActivateAsync()
@@ -27,8 +33,8 @@ namespace GrainImplementations
                 .Include(u => u.Chats)
                 .FirstOrDefaultAsync(u => u.Id == this.GetPrimaryKey());
             
-            State.JoinedChats = user.Chats.Select(c => c.ChatId).ToList();
-            State.Nickname = user.Nickname;
+            State.JoinedChats = user?.Chats.Select(c => c.ChatId).ToList();
+            State.Nickname = user?.Nickname;
             
             var streamProvider = GetStreamProvider(Constants.StreamProvider);
 
@@ -37,6 +43,38 @@ namespace GrainImplementations
             await stream.SubscribeAsync(UserChatActionHandle);
 
             await base.OnActivateAsync();
+        }
+
+        protected override async Task WriteStateAsync()
+        {
+            var user = await _usersRepository.GetById(this.GetPrimaryKey());
+
+            if (user == null)
+            {
+                await _usersRepository.Create(new DAL.Models.UserModel
+                {
+                    Id = this.GetPrimaryKey(),
+                    Nickname = State.Nickname
+                });
+            }
+            else
+            {
+                user.Nickname = State.Nickname;
+                await _usersRepository.Update(user);
+            
+                await _userChatRepository.DeleteWhere(u => u.UserId == user.Id);
+
+                foreach (var joinedChat in State.JoinedChats)
+                {
+                    await _userChatRepository.Create(new UserChatModel
+                    {
+                        ChatId = joinedChat,
+                        UserId = user.Id
+                    });
+                }   
+            }
+            
+            await base.WriteStateAsync();
         }
 
         public async Task<IChat> CreateChat(CreateChatModel model)

@@ -59,44 +59,51 @@ namespace Client
 
                 if (string.IsNullOrWhiteSpace(input)) continue;
 
-                if (input.StartsWith("/j"))
+                try
                 {
-                    await JoinChat(Guid.Parse(input.Replace("/j", "").Trim()));
+                    if (input.StartsWith("/j"))
+                    {
+                        await JoinChat(Guid.Parse(input.Replace("/j", "").Trim()));
+                    }
+                    else if (input.StartsWith("/cj"))
+                    {
+                        await CreatAndJoinToChat(input.Replace("/cj", "").TrimStart());
+                    }
+                    else if (input.StartsWith("/leave"))
+                    {
+                        await LeaveChat();
+                    }
+                    else if (input.StartsWith("/list"))
+                    {
+                        await ShowChats();
+                    }
+                    else if (input.StartsWith("/l"))
+                    {
+                        await Login(Guid.Parse(input.Replace("/l", "").Trim()));
+                    }
+                    else if (input.StartsWith("/n"))
+                    {
+                        await SetNickname(input.Replace("/n", "").Trim());
+                    }
+                    else if (input.StartsWith("/sm"))
+                    {
+                        await SendMessage(input.Replace("/sm", "").TrimStart());
+                    }
+                    else if (input.StartsWith("/conn"))
+                    {
+                        await ConnectTo(Guid.Parse(input.Replace("/conn", "").Trim()));
+                    }
+                    else if (input.StartsWith("/disc"))
+                    {
+                        await Disconnect();
+                    }
+                    else if (!input.StartsWith("/exit"))
+                    {
+                    }
                 }
-                else if (input.StartsWith("/cj"))
+                catch (Exception e)
                 {
-                    await CreatAndJoinToChat(input.Replace("/cj", ""));
-                }
-                else if (input.StartsWith("/leave"))
-                {
-                    await LeaveChat();
-                }
-                else if (input.StartsWith("/list"))
-                {
-                    await ShowChats();
-                }
-                else if (input.StartsWith("/l"))
-                {
-                    await Login(Guid.Parse(input.Replace("/l", "").Trim()));
-                }
-                else if (input.StartsWith("/n"))
-                {
-                    await SetNickname(input.Replace("/n", "").Trim());
-                }
-                else if (input.StartsWith("/sm"))
-                {
-                    await SendMessage(input.Replace("/sm", ""));
-                }
-                else if (input.StartsWith("/conn"))
-                {
-                    await ConnectTo(Guid.Parse(input.Replace("/conn", "").Trim()));
-                }
-                else if (input.StartsWith("/disc"))
-                {
-                    await Disconnect();
-                }
-                else if (!input.StartsWith("/exit"))
-                {
+                    Console.WriteLine(e);
                 }
             } while (input != "/exit");
         }
@@ -127,17 +134,19 @@ namespace Client
             var chat = _client.GetGrain<IChat>(_currentChat);
             var user = _client.GetGrain<IUser>(_userId);
 
-            await chat.SendMessage(new ChatMessageModel
+            var messageModel = new ChatMessageModel
             {
                 Text = message,
                 User = await user.GetNickname(),
                 UserId = user.GetPrimaryKey()
-            });
+            };
+            
+            await chat.SendMessage(messageModel);
         }
 
         public async Task CreatAndJoinToChat(string name)
         {
-            var chat = _client.GetGrain<IChat>(Guid.Parse("A9EF4F9E-DB28-4B25-9B5D-91DB3D25923A"));
+            var chat = _client.GetGrain<IChat>(Guid.NewGuid());
 
             await chat.Init(new ChatSettingsModel
             {
@@ -163,13 +172,14 @@ namespace Client
             var user = _client.GetGrain<IUser>(_userId);
 
             await chat.Leave(user);
-
+            await _chatMessageSubscriptionHandle.UnsubscribeAsync();
+            
             _currentChat = Guid.Empty;
         }
 
         public async Task SetNickname(string nickname)
         {
-            var user = _client.GetGrain<IUser>(Guid.Parse("7C919B83-6A2D-4061-88CE-293E42B4E750"));
+            var user = _client.GetGrain<IUser>(Guid.NewGuid());
 
             await user.Save(new UserModel
             {
@@ -192,6 +202,10 @@ namespace Client
             var user = _client.GetGrain<IUser>(_userId);
 
             await chat.Connect(user);
+            
+            var chatMessageStream = GetChatMessageStream(chat.GetPrimaryKey());
+
+            _chatMessageSubscriptionHandle = await chatMessageStream.SubscribeAsync(ChatMessageHandle);
 
             var messages = await chat.GetHistory(20);
 

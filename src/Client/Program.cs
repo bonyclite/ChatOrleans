@@ -45,7 +45,6 @@ namespace Client
                 .ConfigureApplicationParts(parts =>
                     parts.AddApplicationPart(typeof(IUser).Assembly)
                         .WithReferences())
-                .ConfigureLogging(_ => _.AddConsole())
                 .Build();
 
             clusterClient.Connect().Wait();
