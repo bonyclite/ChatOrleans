@@ -28,15 +28,15 @@ namespace API.Controllers
             await chat.SendMessage(new ChatMessageModel
             {
                 Text = model.Message,
-                User = await user.GetNickname(),
-                UserId = user.GetPrimaryKey()
+                User = user.GetPrimaryKeyString(),
+                UserId = await user.GetUserIdAsync()
             });
 
             await chat.SendMessage(new ChatMessageModel
             {
                 Text = $"{model.Message} with timer",
-                User = await user.GetNickname(),
-                UserId = user.GetPrimaryKey()
+                User = user.GetPrimaryKeyString(),
+                UserId = await user.GetUserIdAsync()
             }, DateTime.UtcNow.AddSeconds(15));
 
             return "Ok";

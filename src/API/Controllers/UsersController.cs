@@ -1,9 +1,7 @@
-using System;
 using System.Threading.Tasks;
 using API.Models;
 using GrainInterfaces;
 using GrainInterfaces.Models.Chat;
-using GrainInterfaces.Models.User;
 using Microsoft.AspNetCore.Mvc;
 using Orleans;
 
@@ -23,24 +21,19 @@ namespace API.Controllers
         [HttpPost]
         public async Task<UserApiModel> Create(UserApiModel model)
         {
-            var user = _clusterClient.GetGrain<IUser>(Guid.NewGuid());
+            var user = _clusterClient.GetGrain<IUser>(model.UserName);
 
-            await user.Save(new UserModel
-            {
-                Nickname = model.UserName
-            });
-            
             return new UserApiModel
             {
-                Id = user.GetPrimaryKey(),
-                UserName = await user.GetNickname()
+                Id = await user.GetUserIdAsync(),
+                UserName = user.GetPrimaryKeyString()
             };
         }
         
         [HttpPost("chat")]
         public async Task<ChatModel> Create(ChatApiModel model)
         {
-            var user = _clusterClient.GetGrain<IUser>(model.OwnerId);
+            var user = _clusterClient.GetGrain<IUser>(model.OwnerNickName);
             
             var chat = await user.CreateChat(new CreateChatModel
             {
@@ -48,7 +41,7 @@ namespace API.Controllers
                 {
                     Name = model.Name,
                     IsPrivate = model.IsPrivate,
-                    OwnerId = model.OwnerId
+                    OwnerNickName = user.GetPrimaryKeyString()
                 }
             });
 

@@ -10,17 +10,16 @@ using Microsoft.EntityFrameworkCore;
 using Orleans;
 using Orleans.Providers;
 using Orleans.Streams;
-using UserModel = GrainInterfaces.Models.User.UserModel;
 
 namespace GrainImplementations
 {    
-    [StorageProvider(ProviderName = "PubSubStore")]
+    [StorageProvider(ProviderName = Constants.PubSubStore)]
     public class User : Grain<UserState>, IUser
     {
-        private readonly IGenericRepository<DAL.Models.UserModel> _usersRepository;
+        private readonly IGenericRepository<UserModel> _usersRepository;
         private readonly IGenericRepository<UserChatModel> _userChatRepository;
 
-        public User(IGenericRepository<DAL.Models.UserModel> usersRepository
+        public User(IGenericRepository<UserModel> usersRepository
             , IGenericRepository<UserChatModel> userChatRepository)
         {
             _usersRepository = usersRepository;
@@ -29,16 +28,27 @@ namespace GrainImplementations
         
         public override async Task OnActivateAsync()
         {
+            var nickName = this.GetPrimaryKeyString();
+            
             var user = await _usersRepository.GetAll()
                 .Include(u => u.Chats)
-                .FirstOrDefaultAsync(u => u.Id == this.GetPrimaryKey());
+                .FirstOrDefaultAsync(u => u.Nickname == nickName);
             
-            State.JoinedChats = user?.Chats.Select(c => c.ChatId).ToList();
-            State.Nickname = user?.Nickname;
+            if (user == null)
+            {
+                user = await _usersRepository.Create(new UserModel
+                {
+                    Id = Guid.NewGuid(),
+                    Nickname = nickName
+                });
+            }
+            
+            State.JoinedChats = user.Chats?.Select(c => c.ChatId).ToList();
+            State.UserId = user.Id;
             
             var streamProvider = GetStreamProvider(Constants.StreamProvider);
 
-            var stream = streamProvider.GetStream<UserChatActionModel>(this.GetPrimaryKey(),
+            var stream = streamProvider.GetStream<UserChatActionModel>(State.UserId,
                 Constants.UsersChatActionsStreamNamespace);
             await stream.SubscribeAsync(UserChatActionHandle);
 
@@ -47,19 +57,23 @@ namespace GrainImplementations
 
         protected override async Task WriteStateAsync()
         {
-            var user = await _usersRepository.GetById(this.GetPrimaryKey());
+            var nickName = this.GetPrimaryKeyString();
+            
+            var user = await _usersRepository
+                .GetAll(u => u.Nickname == nickName)
+                .FirstOrDefaultAsync();
 
             if (user == null)
             {
-                await _usersRepository.Create(new DAL.Models.UserModel
+                user = await _usersRepository.Create(new UserModel
                 {
-                    Id = this.GetPrimaryKey(),
-                    Nickname = State.Nickname
+                    Id = Guid.NewGuid(),
+                    Nickname = nickName
                 });
             }
             else
             {
-                user.Nickname = State.Nickname;
+                user.Nickname = nickName;
                 await _usersRepository.Update(user);
             
                 await _userChatRepository.DeleteWhere(u => u.UserId == user.Id);
@@ -73,6 +87,8 @@ namespace GrainImplementations
                     });
                 }   
             }
+
+            State.UserId = user.Id;
             
             await base.WriteStateAsync();
         }
@@ -81,7 +97,7 @@ namespace GrainImplementations
         {
             var chatId = Guid.NewGuid();
 
-            model.Settings.OwnerId = this.GetPrimaryKey();
+            model.Settings.OwnerNickName = this.GetPrimaryKeyString();
 
             var chat = GrainFactory.GetGrain<IChat>(chatId);
             await chat.Init(model.Settings);
@@ -91,16 +107,9 @@ namespace GrainImplementations
             return chat;
         }
 
-        public async Task Save(UserModel model)
+        public Task<Guid> GetUserIdAsync()
         {
-            State.Nickname = model.Nickname;
-            
-            await WriteStateAsync();
-        }
-
-        public Task<string> GetNickname()
-        {
-            return Task.FromResult(State.Nickname);
+            return Task.FromResult(State.UserId);
         }
 
         private async Task UserChatActionHandle(UserChatActionModel model, StreamSequenceToken token = null)

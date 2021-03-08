@@ -77,7 +77,7 @@ namespace API
 
         private IClusterClient CreateClusterClient(IServiceProvider serviceProvider)
         {
-            var localHost = IPAddress.Parse("127.0.0.1");
+            var localHost = IPAddress.Parse("192.168.1.74");
 
             var clusterClient = new ClientBuilder()
                 .Configure<ClusterOptions>(options =>

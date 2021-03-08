@@ -17,7 +17,7 @@ using Orleans.Streams;
 
 namespace GrainImplementations
 {
-    [StorageProvider(ProviderName = "PubSubStore")]
+    [StorageProvider(ProviderName = Constants.PubSubStore)]
     public class Chat : Grain<ChatState>, IChat
     {
         private readonly IGenericRepository<DAL.Models.ChatModel> _chatRepository;
@@ -59,20 +59,22 @@ namespace GrainImplementations
         {
             var chat = await _chatRepository.GetById(this.GetPrimaryKey());
 
+            var user = GrainFactory.GetGrain<IUser>(State.Settings.OwnerNickName);
+            
             if (chat == null)
             {
                 await _chatRepository.Create(new DAL.Models.ChatModel
                 {
                     Id = this.GetPrimaryKey(),
                     Name = State.Settings.Name,
-                    OwnerId = State.Settings.OwnerId,
+                    OwnerId = await user.GetUserIdAsync(),
                     IsPrivate = State.Settings.IsPrivate
                 });
             }
             else
             {
                 chat.Name = State.Settings.Name;
-                chat.OwnerId = State.Settings.OwnerId;
+                chat.OwnerId = await user.GetUserIdAsync();
                 chat.IsPrivate = State.Settings.IsPrivate;
 
                 await _chatRepository.Update(chat);
@@ -89,12 +91,12 @@ namespace GrainImplementations
 
             if (State.Settings != null && State.Settings.Name != settings.Name)
             {
-                var user = GrainFactory.GetGrain<IUser>(settings.OwnerId);
+                var user = GrainFactory.GetGrain<IUser>(settings.OwnerNickName);
 
                 await SendMessage(new ChatMessageModel
                 {
                     User = Constants.SystemUser,
-                    Text = $"{await user.GetNickname()} updated chat name to <{settings.Name}>",
+                    Text = $"{user.GetPrimaryKeyString()} updated chat name to <{settings.Name}>",
                     UserId = Constants.SystemUserId
                 });
             }
@@ -108,8 +110,8 @@ namespace GrainImplementations
         {
             if (State.IsInitializedFirstly)
             {
-                var owner = GrainFactory.GetGrain<IUser>(settings.OwnerId);
-                var nickname = await owner.GetNickname();
+                var owner = GrainFactory.GetGrain<IUser>(settings.OwnerNickName);
+                var nickname = owner.GetPrimaryKeyString();
 
                 await SendMessage(new ChatMessageModel
                 {
@@ -145,10 +147,10 @@ namespace GrainImplementations
             {
                 User = Constants.SystemUser,
                 UserId = Constants.SystemUserId,
-                Text = $"'{await user.GetNickname()}' joined the chat"
+                Text = $"'{user.GetPrimaryKeyString()}' joined the chat"
             });
 
-            await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
+            await SendUserChatActionModel(await user.GetUserIdAsync(), new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
                 Type = UserChatActionType.Join
@@ -163,10 +165,10 @@ namespace GrainImplementations
             {
                 User = Constants.SystemUser,
                 UserId = Constants.SystemUserId,
-                Text = $"'{await user.GetNickname()}' leaved from chat"
+                Text = $"'{user.GetPrimaryKeyString()}' left from chat"
             });
 
-            await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
+            await SendUserChatActionModel(await user.GetUserIdAsync(), new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
                 Type = UserChatActionType.Leave
@@ -175,9 +177,9 @@ namespace GrainImplementations
 
         public async Task Connect(IUser user)
         {
-            State.OnlineMembers.Add(user.GetPrimaryKey());
+            State.OnlineMembers.Add(await user.GetUserIdAsync());
 
-            await SendUserChatActionModel(user.GetPrimaryKey(), new UserChatActionModel
+            await SendUserChatActionModel(await user.GetUserIdAsync(), new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
                 Type = UserChatActionType.Connect
@@ -191,7 +193,7 @@ namespace GrainImplementations
 
         public async Task Disconnect(IUser user)
         {
-            State.OnlineMembers.Remove(user.GetPrimaryKey());
+            State.OnlineMembers.Remove(await user.GetUserIdAsync());
         }
 
         public Task<bool> IsPrivate()
@@ -211,7 +213,11 @@ namespace GrainImplementations
 
         private async Task FillState()
         {
-            var chat = await _chatRepository.GetById(this.GetPrimaryKey());
+            var chatId = this.GetPrimaryKey();
+            var chat = await _chatRepository
+                .GetAll()
+                .Include(c => c.Owner)
+                .FirstOrDefaultAsync(model => model.Id == chatId);
 
             if (chat != null)
             {
@@ -219,7 +225,7 @@ namespace GrainImplementations
                 {
                     Name = chat.Name,
                     IsPrivate = chat.IsPrivate,
-                    OwnerId = chat.OwnerId
+                    OwnerNickName = chat.Owner.Nickname
                 };
 
                 var messages = await _messagesRepository

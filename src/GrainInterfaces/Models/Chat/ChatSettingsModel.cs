@@ -6,6 +6,6 @@ namespace GrainInterfaces.Models.Chat
     {
         public string Name { get; set; }
         public bool IsPrivate { get; set; }
-        public Guid OwnerId { get; set; }
+        public string OwnerNickName { get; set; }
     }
 }

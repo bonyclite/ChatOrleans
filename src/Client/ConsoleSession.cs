@@ -79,11 +79,11 @@ namespace Client
                     }
                     else if (input.StartsWith("/l"))
                     {
-                        await Login(Guid.Parse(input.Replace("/l", "").Trim()));
+                        await Login(input.Replace("/l", "").Trim());
                     }
                     else if (input.StartsWith("/n"))
                     {
-                        await SetNickname(input.Replace("/n", "").Trim());
+                        await Login(input.Replace("/n", "").Trim());
                     }
                     else if (input.StartsWith("/sm"))
                     {
@@ -132,13 +132,13 @@ namespace Client
             }
 
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userId);
+            var user = _client.GetGrain<IUser>(_userNickname);
 
             var messageModel = new ChatMessageModel
             {
                 Text = message,
-                User = await user.GetNickname(),
-                UserId = user.GetPrimaryKey()
+                User = user.GetPrimaryKeyString(),
+                UserId = await user.GetUserIdAsync()
             };
             
             await chat.SendMessage(messageModel);
@@ -150,7 +150,7 @@ namespace Client
 
             await chat.Init(new ChatSettingsModel
             {
-                OwnerId = _userId,
+                OwnerNickName = _userNickname,
                 Name = name
             });
 
@@ -169,7 +169,7 @@ namespace Client
         public async Task LeaveChat()
         {
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userId);
+            var user = _client.GetGrain<IUser>(_userNickname);
 
             await chat.Leave(user);
             await _chatMessageSubscriptionHandle.UnsubscribeAsync();
@@ -177,21 +177,9 @@ namespace Client
             _currentChat = Guid.Empty;
         }
 
-        public async Task SetNickname(string nickname)
+        public async Task Login(string name)
         {
-            var user = _client.GetGrain<IUser>(Guid.NewGuid());
-
-            await user.Save(new UserModel
-            {
-                Nickname = nickname
-            });
-
-            await Login(user);
-        }
-
-        public async Task Login(Guid id)
-        {
-            var user = _client.GetGrain<IUser>(id);
+            var user = _client.GetGrain<IUser>(name);
 
             await Login(user);
         }
@@ -199,7 +187,7 @@ namespace Client
         public async Task ConnectTo(Guid chatId)
         {
             var chat = _client.GetGrain<IChat>(chatId);
-            var user = _client.GetGrain<IUser>(_userId);
+            var user = _client.GetGrain<IUser>(_userNickname);
 
             await chat.Connect(user);
             
@@ -220,7 +208,7 @@ namespace Client
         public async Task Disconnect()
         {
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userId);
+            var user = _client.GetGrain<IUser>(_userNickname);
 
             await chat.Disconnect(user);
             await _chatMessageSubscriptionHandle.UnsubscribeAsync();
@@ -230,8 +218,8 @@ namespace Client
         
         private async Task Login(IUser user)
         {
-            _userNickname = await user.GetNickname();
-            _userId = user.GetPrimaryKey();
+            _userNickname = user.GetPrimaryKeyString();
+            _userId = await user.GetUserIdAsync();
 
             PrettyConsole.WriteLine($"Your nickname is {_userNickname}, id - {_userId}", ConsoleColor.Gray);
         }
@@ -252,7 +240,7 @@ namespace Client
 
             _currentChat = id;
 
-            var user = _client.GetGrain<IUser>(_userId);
+            var user = _client.GetGrain<IUser>(_userNickname);
 
             await chat.Join(user);
             await chat.Connect(user);

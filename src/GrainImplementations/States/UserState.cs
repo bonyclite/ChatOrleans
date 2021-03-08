@@ -5,7 +5,7 @@ namespace GrainImplementations.States
 {
     public class UserState
     {
-        public string Nickname { get; set; }
+        public Guid UserId { get; set; }
         public List<Guid> JoinedChats { get; set; }
         public Guid? ConnectedChatId { get; set; }
 

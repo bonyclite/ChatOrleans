@@ -1,14 +1,13 @@
+using System;
 using System.Threading.Tasks;
 using GrainInterfaces.Models.Chat;
-using GrainInterfaces.Models.User;
 using Orleans;
 
 namespace GrainInterfaces
 {
-    public interface IUser : IGrainWithGuidKey
+    public interface IUser : IGrainWithStringKey
     {
         Task<IChat> CreateChat(CreateChatModel model);
-        Task Save(UserModel model);
-        Task<string> GetNickname();
+        Task<Guid> GetUserIdAsync();
     }
 }
