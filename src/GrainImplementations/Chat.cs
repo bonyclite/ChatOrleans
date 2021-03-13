@@ -4,13 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Core.Extensions;
 using DAL.Repositories;
-using GrainImplementations.Observers;
 using GrainImplementations.States;
 using GrainInterfaces;
 using GrainInterfaces.Models.Chat;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Providers;
 using Orleans.Streams;
@@ -24,7 +21,8 @@ namespace GrainImplementations
         private readonly IGenericRepository<DAL.Models.ChatMessageModel> _messagesRepository;
 
         private IAsyncStream<ChatMessageModel> _chatMessageStream;
-
+        private IAsyncStream<OnlineCountMembersModel> _onlineCountMembersStream;
+        
         public Chat(IGenericRepository<DAL.Models.ChatModel> chatRepository
             , IGenericRepository<DAL.Models.ChatMessageModel> messagesRepository)
         {
@@ -35,15 +33,7 @@ namespace GrainImplementations
         public override async Task OnActivateAsync()
         {
             await FillState();
-
-            var streamProvider = GetStreamProvider(Constants.StreamProvider);
-
-            _chatMessageStream = streamProvider.GetStream<ChatMessageModel>(this.GetPrimaryKey(),
-                Constants.ChatMessagesNamespace);
-
-            await _chatMessageStream.SubscribeAsync(
-                new ChatMessageObserver(ServiceProvider.GetRequiredService<ILogger<ChatMessageObserver>>()));
-
+            
             RegisterTimer(o => SaveNewMessages(), null, TimeSpan.FromSeconds(30),TimeSpan.FromSeconds(30));
             
             await base.OnActivateAsync();
@@ -85,18 +75,12 @@ namespace GrainImplementations
 
         public async Task UpdateSettings(ChatSettingsModel settings)
         {
-            if (State.Settings == null)
-            {
-            }
-
             if (State.Settings != null && State.Settings.Name != settings.Name)
             {
-                var user = GrainFactory.GetGrain<IUser>(settings.OwnerNickName);
-
                 await SendMessage(new ChatMessageModel
                 {
                     User = Constants.SystemUser,
-                    Text = $"{user.GetPrimaryKeyString()} updated chat name to <{settings.Name}>",
+                    Text = $"{settings.OwnerNickName} updated chat name to <{settings.Name}>",
                     UserId = Constants.SystemUserId
                 });
             }
@@ -106,29 +90,30 @@ namespace GrainImplementations
             await WriteStateAsync();
         }
 
-        public async Task Init(ChatSettingsModel settings)
+        public async Task Create(ChatSettingsModel settings)
         {
-            if (State.IsInitializedFirstly)
+            var owner = GrainFactory.GetGrain<IUser>(settings.OwnerNickName);
+            var nickname = owner.GetPrimaryKeyString();
+            
+            await UpdateSettings(settings);
+            await InitStreamsAsync();
+
+            await SendMessage(new ChatMessageModel
             {
-                var owner = GrainFactory.GetGrain<IUser>(settings.OwnerNickName);
-                var nickname = owner.GetPrimaryKeyString();
+                User = Constants.SystemUser,
+                UserId = Constants.SystemUserId,
+                Text = $"{nickname} created the chat «{settings.Name}»"
+            });
 
-                await SendMessage(new ChatMessageModel
-                {
-                    User = Constants.SystemUser,
-                    UserId = Constants.SystemUserId,
-                    Text = $"{nickname} created the chat «{settings.Name}»"
-                });
-
-                State.IsInitializedFirstly = false;
-                await UpdateSettings(settings);
-            }
+            await Join(owner);
         }
 
         public async Task SendMessage(ChatMessageModel message)
         {
+            message.CreateDate = DateTime.UtcNow;
+            
             await _chatMessageStream.OnNextAsync(message);
-
+            
             State.NewMessages.Add(message);
             State.Messages.Add(message);
         }
@@ -177,23 +162,54 @@ namespace GrainImplementations
 
         public async Task Connect(IUser user)
         {
-            State.OnlineMembers.Add(await user.GetUserIdAsync());
+            var userId = await user.GetUserIdAsync();
+            State.OnlineMembersCount++;
 
-            await SendUserChatActionModel(await user.GetUserIdAsync(), new UserChatActionModel
+            await SendUserChatActionModel(userId, new UserChatActionModel
             {
                 ChatId = this.GetPrimaryKey(),
                 Type = UserChatActionType.Connect
             });
+
+            await SendOnlineCountMembers();
         }
 
-        public Task<IEnumerable<ChatMessageModel>> GetHistory(int messageSize)
+        public async Task Join(IUser user, IUser joinedUser)
         {
-            return Task.FromResult(State.Messages.TakeLast(messageSize));
+            await SendMessage(new ChatMessageModel
+            {
+                User = Constants.SystemUser,
+                UserId = Constants.SystemUserId,
+                Text = $"'{user.GetPrimaryKeyString()}' added '{joinedUser.GetPrimaryKeyString()}'"
+            });
+
+            await SendUserChatActionModel(await user.GetUserIdAsync(), new UserChatActionModel
+            {
+                ChatId = this.GetPrimaryKey(),
+                Type = UserChatActionType.Join
+            });
+        }
+
+        public async Task<IEnumerable<ChatMessageModel>> GetHistory(int messageSize)
+        {
+            return State.Messages
+                .OrderBy(m => m.CreateDate)
+                .TakeLast(messageSize)
+                .ToArray();
         }
 
         public async Task Disconnect(IUser user)
         {
-            State.OnlineMembers.Remove(await user.GetUserIdAsync());
+            State.OnlineMembersCount--;
+            await SendOnlineCountMembers();
+        }
+
+        private async Task SendOnlineCountMembers()
+        {
+            await _onlineCountMembersStream.OnNextAsync(new OnlineCountMembersModel
+            {
+                CountOnline = State.OnlineMembersCount
+            });
         }
 
         public Task<bool> IsPrivate()
@@ -211,6 +227,27 @@ namespace GrainImplementations
             });
         }
 
+        public Task<string> GetNameAsync()
+        {
+            return Task.FromResult(State.Settings.Name);
+        }
+
+        public Task<int> GetOnlineCountMembersAsync()
+        {
+            return Task.FromResult(State.OnlineMembersCount);
+        }
+
+        private async Task InitStreamsAsync()
+        {
+            var streamProvider = GetStreamProvider(Constants.StreamProvider);
+            
+            _chatMessageStream = streamProvider.GetStream<ChatMessageModel>(State.Id, Constants.ChatMessagesNamespace);
+            _onlineCountMembersStream = streamProvider.GetStream<OnlineCountMembersModel>(State.Id, Constants.ChatOnlineMembersNamespace);
+
+            var subscriptionHandles = await _chatMessageStream.GetAllSubscriptionHandles();
+            State.OnlineMembersCount = subscriptionHandles.Count;
+        }
+        
         private async Task FillState()
         {
             var chatId = this.GetPrimaryKey();
@@ -218,7 +255,7 @@ namespace GrainImplementations
                 .GetAll()
                 .Include(c => c.Owner)
                 .FirstOrDefaultAsync(model => model.Id == chatId);
-
+            
             if (chat != null)
             {
                 State.Settings = new ChatSettingsModel
@@ -228,8 +265,11 @@ namespace GrainImplementations
                     OwnerNickName = chat.Owner.Nickname
                 };
 
+                State.Id = chatId;
+
                 var messages = await _messagesRepository
                     .GetAll()
+                    .Where(c => c.ChatId == chatId)
                     .Include(m => m.User)
                     .ToArrayAsync();
 
@@ -237,20 +277,12 @@ namespace GrainImplementations
                 {
                     Text = m.Text,
                     User = m.User.Nickname,
-                    UserId = m.UserId
+                    UserId = m.UserId,
+                    CreateDate = m.CreateDate
                 }).ToList();
 
-                State.IsInitializedFirstly = false;
+                await InitStreamsAsync();
             }
-
-            State.IsInitializedFirstly = true;
-        }
-
-        private IAsyncStream<T> GetUserChatActionStream<T>(Guid userId) where T : UserChatActionModel
-        {
-            var streamProvider = GetStreamProvider(Constants.StreamProvider);
-
-            return streamProvider.GetStream<T>(userId, Constants.UsersChatActionsStreamNamespace);
         }
 
         private async Task SendUserChatActionModel<T>(Guid userId, T model) where T : UserChatActionModel
@@ -258,6 +290,13 @@ namespace GrainImplementations
             var stream = GetUserChatActionStream<T>(userId);
 
             await stream.OnNextAsync(model);
+        }
+
+        private IAsyncStream<T> GetUserChatActionStream<T>(Guid userId) where T : UserChatActionModel
+        {
+            var streamProvider = GetStreamProvider(Constants.StreamProvider);
+
+            return streamProvider.GetStream<T>(userId, Constants.UsersChatActionsStreamNamespace);
         }
 
         private async Task SaveNewMessages()
@@ -268,7 +307,8 @@ namespace GrainImplementations
                 {
                     ChatId = this.GetPrimaryKey(),
                     UserId = newMessage.UserId,
-                    Text = newMessage.Text
+                    Text = newMessage.Text,
+                    CreateDate = newMessage.CreateDate
                 });
             }
             

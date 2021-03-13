@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Client.Xamarin"
+             xmlns:viewModels="clr-namespace:Client.Xamarin.ViewModels;assembly=Client.Xamarin"
+             xmlns:models="clr-namespace:Client.Xamarin.Models;assembly=Client.Xamarin"
+             x:Class="Client.Xamarin.Views.ChatListPage" x:DataType="viewModels:ChatListPageViewModel">
+    <NavigationPage.TitleView>
+        <Label Text="Chat list" 
+               VerticalTextAlignment="Start"
+               FontSize="Title"/>
+    </NavigationPage.TitleView>
+    
+    <ContentPage.Resources>
+        <DataTemplate x:Key="ColorItemTemplate">
+            <ViewCell>
+                <ViewCell.View>
+                    <StackLayout>
+                        <!-- <Label Text="{Binding Id}" BackgroundColor="Brown"></Label> -->
+                        <Label Text="{Binding Name}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" x:DataType="models:ChatModel" />
+                    </StackLayout>
+                </ViewCell.View>
+            </ViewCell>
+        </DataTemplate>
+
+    </ContentPage.Resources>
+
+    <RefreshView IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}"
+                 RefreshColor="Teal"
+                 Command="{Binding RefreshCommand, Mode=TwoWay}">
+        <AbsoluteLayout Margin="10,35,10,10">
+            <ScrollView AbsoluteLayout.LayoutBounds="0,0,1,1"
+                        AbsoluteLayout.LayoutFlags="SizeProportional">
+                <ListView ItemSelected="ListView_OnItemSelected" 
+                          ItemsSource="{Binding Items, Mode=TwoWay}"
+                          ItemTemplate="{StaticResource ColorItemTemplate}" />
+            </ScrollView>
+            <ImageButton
+                AbsoluteLayout.LayoutBounds="0.95,0.95,80,80"
+                AbsoluteLayout.LayoutFlags="PositionProportional"
+                CornerRadius="40"
+                HeightRequest="80"
+                Source="icons8-plus-50.png"
+                WidthRequest="80" 
+                Clicked="ImageButton_OnClicked"/>
+        </AbsoluteLayout>
+    </RefreshView>
+
+</ContentPage>

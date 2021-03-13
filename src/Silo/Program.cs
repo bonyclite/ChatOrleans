@@ -17,7 +17,7 @@ namespace Silo
     {
         static Task Main(string[] args)
         {
-            var localHost = IPAddress.Parse("127.0.0.1");
+            var localHost = IPAddress.Parse("192.168.1.74");
             
             return new HostBuilder()
                 .UseOrleans(builder =>

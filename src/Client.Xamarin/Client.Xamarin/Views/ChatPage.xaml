@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Client.Xamarin.Models;assembly=Client.Xamarin"
+             xmlns:viewModels="clr-namespace:Client.Xamarin.ViewModels;assembly=Client.Xamarin"
+             x:Class="Client.Xamarin.Views.ChatPage" x:DataType="viewModels:ChatPageViewModel">
+    <NavigationPage.TitleView>
+        <StackLayout Orientation="Vertical">
+            <Label Text="{Binding ChatName}" 
+                   VerticalTextAlignment="Start"
+                   FontSize="Title"/>
+            <Label Text="{Binding OnlineCountMember, StringFormat='online member: {0}'}" 
+                   VerticalTextAlignment="Start"
+                   FontSize="Small"/>
+        </StackLayout>
+        
+    </NavigationPage.TitleView>
+
+    <ContentPage.Resources>
+        <DataTemplate x:Key="ChatMessageTemplate" x:DataType="models:ChatMessageModel">
+            <ViewCell>
+                <ViewCell.View>
+                    <Frame CornerRadius="5"
+                           Margin="0, 5, 0, 0"
+                           Padding="0">
+                        <StackLayout Orientation="Horizontal"
+                                     BackgroundColor="{Binding BackgroundColor}">
+                            <!-- <Label Text="{Binding Id}" BackgroundColor="Brown"></Label> -->
+                            <Label Text="{Binding UserNickName, StringFormat='{0}: '}" />
+                            <Label Text="{Binding MessageText}" />
+                        </StackLayout>
+                    </Frame>
+                </ViewCell.View>
+            </ViewCell>
+        </DataTemplate>
+
+    </ContentPage.Resources>
+    <RefreshView IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}"
+                 RefreshColor="Teal"
+                 Command="{Binding RefreshCommand, Mode=TwoWay}">
+        <StackLayout Margin="10,35,10,10">
+            <ScrollView>
+                <ListView ItemsSource="{Binding Messages, Mode=TwoWay}"
+                          ItemTemplate="{StaticResource ChatMessageTemplate}"
+                          SelectionMode="None" />
+            </ScrollView>
+
+            <Entry Text="{Binding CurrentMessage}"
+                   Placeholder="Write message"
+                   Completed="Entry_OnCompleted" />
+        </StackLayout>
+    </RefreshView>
+
+</ContentPage>

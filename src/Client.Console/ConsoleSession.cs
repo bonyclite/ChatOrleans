@@ -1,15 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using DAL.Repositories;
 using GrainInterfaces;
 using GrainInterfaces.Models.Chat;
-using GrainInterfaces.Models.User;
-using Microsoft.EntityFrameworkCore;
 using Orleans;
 using Orleans.Streams;
 using Utils;
-using ChatModel = DAL.Models.ChatModel;
 
 namespace Client
 {
@@ -20,15 +16,12 @@ namespace Client
         private string _userNickname = "";
 
         private readonly IClusterClient _client;
-        private readonly IGenericRepository<ChatModel> _chatsRepository;
 
         private StreamSubscriptionHandle<ChatMessageModel> _chatMessageSubscriptionHandle; 
         
-        public ConsoleSession(IClusterClient client
-            , IGenericRepository<ChatModel> chatsRepository)
+        public ConsoleSession(IClusterClient client)
         {
             _client = client;
-            _chatsRepository = chatsRepository;
         }
 
         private void PrintHints()
@@ -110,7 +103,8 @@ namespace Client
 
         public async Task ShowChats()
         {
-            var chats = await _chatsRepository.GetAll().ToArrayAsync();
+            var chatListGrain = _client.GetGrain<IChatList>(Constants.ChatListId);
+            var chats = await chatListGrain.GetAllAsync();
 
             if (!chats.Any())
             {
@@ -132,13 +126,12 @@ namespace Client
             }
 
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userNickname);
 
             var messageModel = new ChatMessageModel
             {
                 Text = message,
-                User = user.GetPrimaryKeyString(),
-                UserId = await user.GetUserIdAsync()
+                User = _userNickname,
+                UserId = _userId
             };
             
             await chat.SendMessage(messageModel);
@@ -146,9 +139,10 @@ namespace Client
 
         public async Task CreatAndJoinToChat(string name)
         {
-            var chat = _client.GetGrain<IChat>(Guid.NewGuid());
+            var chatId = Guid.NewGuid();
+            var chat = _client.GetGrain<IChat>(chatId);
 
-            await chat.Init(new ChatSettingsModel
+            await chat.Create(new ChatSettingsModel
             {
                 OwnerNickName = _userNickname,
                 Name = name
@@ -184,6 +178,17 @@ namespace Client
             await Login(user);
         }
 
+        public async Task Disconnect()
+        {
+            var chat = _client.GetGrain<IChat>(_currentChat);
+            var user = _client.GetGrain<IUser>(_userNickname);
+
+            await chat.Disconnect(user);
+            await _chatMessageSubscriptionHandle.UnsubscribeAsync();
+            
+            ClearConsoleAndPrintHints();
+        }
+
         public async Task ConnectTo(Guid chatId)
         {
             var chat = _client.GetGrain<IChat>(chatId);
@@ -197,31 +202,14 @@ namespace Client
 
             var messages = await chat.GetHistory(20);
 
+            PrettyConsole.WriteLine($"Online count members: {await chat.GetOnlineCountMembersAsync()}");
+            
             foreach (var message in messages)
             {
                 ShowMessage(message);
             }
 
             _currentChat = chatId;
-        }
-
-        public async Task Disconnect()
-        {
-            var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userNickname);
-
-            await chat.Disconnect(user);
-            await _chatMessageSubscriptionHandle.UnsubscribeAsync();
-            
-            ClearConsoleAndPrintHints();
-        }
-        
-        private async Task Login(IUser user)
-        {
-            _userNickname = user.GetPrimaryKeyString();
-            _userId = await user.GetUserIdAsync();
-
-            PrettyConsole.WriteLine($"Your nickname is {_userNickname}, id - {_userId}", ConsoleColor.Gray);
         }
         
         private async Task JoinTo(IChat chat)
@@ -248,6 +236,15 @@ namespace Client
             var info = await chat.GetInfo();
             
             PrettyConsole.WriteLine($"You join to chat <{info.Name}>", ConsoleColor.Cyan);
+            PrettyConsole.WriteLine($"Online count members: {await chat.GetOnlineCountMembersAsync()}");
+        }
+        
+        private async Task Login(IUser user)
+        {
+            _userNickname = user.GetPrimaryKeyString();
+            _userId = await user.GetUserIdAsync();
+
+            PrettyConsole.WriteLine($"Your nickname is {_userNickname}, id - {_userId}", ConsoleColor.Gray);
         }
 
         private Task ChatMessageHandle(ChatMessageModel model, StreamSequenceToken token)

@@ -13,7 +13,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Silo", "Silo\Silo.csproj", "{6798BDE7-E07E-4E42-AF44-746283801789}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Client", "Client\Client.csproj", "{D8DF40C0-7161-4CDA-A61F-3FCAB2CBD90A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Client.Console", "Client.Console\Client.Console.csproj", "{D8DF40C0-7161-4CDA-A61F-3FCAB2CBD90A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Utils", "Utils\Utils.csproj", "{9A9ACFA2-FDE3-42A1-AC6F-59CFEBCC942B}"
 EndProject

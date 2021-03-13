@@ -33,6 +33,11 @@ namespace DAL.Repositories.Implementation
 
         public virtual async Task<TEntity> Create(TEntity entity)
         {
+            if (entity.CreateDate == DateTime.MinValue)
+            {
+                entity.CreateDate = DateTime.UtcNow;
+            }
+            
             var result = await Context.Set<TEntity>().AddAsync(entity);
             await Context.SaveChangesAsync();
 

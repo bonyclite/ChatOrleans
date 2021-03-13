@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using API.Models;
 using GrainInterfaces;
@@ -34,17 +35,16 @@ namespace API.Controllers
         public async Task<ChatModel> Create(ChatApiModel model)
         {
             var user = _clusterClient.GetGrain<IUser>(model.OwnerNickName);
-            
-            var chat = await user.CreateChat(new CreateChatModel
-            {
-                Settings = new ChatSettingsModel
-                {
-                    Name = model.Name,
-                    IsPrivate = model.IsPrivate,
-                    OwnerNickName = user.GetPrimaryKeyString()
-                }
-            });
 
+            var chatId = Guid.NewGuid();
+            var chat = _clusterClient.GetGrain<IChat>(chatId);
+            await chat.Create(new ChatSettingsModel
+            {
+                Name = model.Name,
+                IsPrivate = model.IsPrivate,
+                OwnerNickName = user.GetPrimaryKeyString()
+            });
+            
             return await chat.GetInfo();
         }
     }

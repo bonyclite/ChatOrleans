@@ -5,4 +5,4 @@ $env:DB_PASSWORD = 'qwe123';
 $env:DB_HOST = 'localhost';
 $env:ASPNETCORE_ENVIRONMENT = 'Development';
 
-dotnet ef --startup-project ../API/ migrations add --context ChatDbContext InitMigration
+dotnet ef --startup-project ../API/ migrations add --context ChatDbContext AddCreateDateMigration

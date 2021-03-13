@@ -7,5 +7,7 @@ namespace DAL.Models
     {
         [Key]
         public Guid Id { get; set; }
+
+        public DateTime CreateDate { get; set; }
     }
 }

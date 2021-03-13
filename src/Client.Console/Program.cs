@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Net;
 using System.Threading.Tasks;
-using DAL;
 using GrainInterfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
@@ -21,9 +18,6 @@ namespace Client
             services.AddSingleton(CreateClusterClient);
             services.AddSingleton<ConsoleSession>();
 
-            SetupContext(services);
-            DependencyInjectionModule.Load(services);
-            
             var serviceProvider = services.BuildServiceProvider();
 
             var consoleSession = serviceProvider.GetRequiredService<ConsoleSession>();
@@ -32,7 +26,7 @@ namespace Client
         
         private static IClusterClient CreateClusterClient(IServiceProvider serviceProvider)
         {
-            var localHost = IPAddress.Parse("127.0.0.1");
+            var localHost = IPAddress.Parse("192.168.1.74");
 
             var clusterClient = new ClientBuilder()
                 .Configure<ClusterOptions>(options =>
@@ -50,24 +44,6 @@ namespace Client
             clusterClient.Connect().Wait();
 
             return clusterClient;
-        }
-
-        private static void SetupContext(IServiceCollection services)
-        {
-            const string host = "localhost";
-            const int port = 5432;
-            const string name = "chatorleansdb";
-            const string password = "qwe123";
-            const string user = "postgres";
-            
-            var connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={name};";;
-            
-            services.AddDbContext<ChatDbContext>(builder =>
-                builder
-                    .EnableSensitiveDataLogging()
-                    .UseNpgsql(connectionString,
-                        optionsBuilder =>
-                            optionsBuilder.MigrationsAssembly(typeof(ChatDbContext).Assembly.FullName)));
         }
     }
 }

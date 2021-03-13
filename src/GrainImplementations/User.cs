@@ -92,21 +92,7 @@ namespace GrainImplementations
             
             await base.WriteStateAsync();
         }
-
-        public async Task<IChat> CreateChat(CreateChatModel model)
-        {
-            var chatId = Guid.NewGuid();
-
-            model.Settings.OwnerNickName = this.GetPrimaryKeyString();
-
-            var chat = GrainFactory.GetGrain<IChat>(chatId);
-            await chat.Init(model.Settings);
-
-            await chat.Join(this);
-
-            return chat;
-        }
-
+        
         public Task<Guid> GetUserIdAsync()
         {
             return Task.FromResult(State.UserId);
