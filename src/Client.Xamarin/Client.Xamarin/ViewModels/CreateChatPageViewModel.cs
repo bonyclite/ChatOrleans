@@ -41,13 +41,16 @@ namespace Client.Xamarin.ViewModels
         public async Task<Guid> CreateAsync()
         {
             var chat = _clusterClient.GetGrain<IChat>(Guid.NewGuid());
-            await chat.Create(new ChatSettingsModel
+            await chat.CreateAsync(new ChatSettingsModel
             {
                 Name = Name,
                 IsPrivate = IsPrivate,
                 OwnerNickName = LocalStore.GetUserNickName()
             });
 
+            var user = LocalStore.GetUserGrain();
+            await chat.JoinAsync(user);
+            
             return chat.GetPrimaryKey();
         }
     }

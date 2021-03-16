@@ -17,5 +17,7 @@ namespace GrainInterfaces
         public static readonly Guid SystemUserId = new Guid("DCB331D8-3D70-4E4A-AF75-71108F706044");
 
         public const string ChatListId = nameof(ChatListId);
+
+        public const string InvariantNamePostgreSql = "Npgsql";
     }
 }

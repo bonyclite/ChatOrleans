@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using System.Threading.Tasks;
 using GrainInterfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,9 +6,9 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 
-namespace Client
+namespace Client.Console
 {
-    class Program
+    partial class Program
     {
         static async Task Main(string[] args)
         {
@@ -26,8 +25,6 @@ namespace Client
         
         private static IClusterClient CreateClusterClient(IServiceProvider serviceProvider)
         {
-            var localHost = IPAddress.Parse("192.168.1.74");
-
             var clusterClient = new ClientBuilder()
                 .Configure<ClusterOptions>(options =>
                 {
@@ -35,7 +32,11 @@ namespace Client
                     options.ServiceId = Constants.ServiceId;
                 })
                 .AddSimpleMessageStreamProvider(Constants.StreamProvider)
-                .UseStaticClustering(new IPEndPoint(localHost, 228))
+                .UseAdoNetClustering(options =>
+                {
+                    options.Invariant = Constants.InvariantNamePostgreSql;
+                    options.ConnectionString = GateWayConnectionString;
+                })
                 .ConfigureApplicationParts(parts =>
                     parts.AddApplicationPart(typeof(IUser).Assembly)
                         .WithReferences())

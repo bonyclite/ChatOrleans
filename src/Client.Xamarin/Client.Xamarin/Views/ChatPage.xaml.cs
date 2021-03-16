@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Client.Xamarin.ViewModels;
 using Xamarin.Forms;
@@ -19,20 +20,21 @@ namespace Client.Xamarin.Views
             InitializeComponent();
         }
 
-        public async Task LoadHistoryAsync(Guid chatId)
+        public async Task ConnectAsync(Guid chatId)
         {
-            await _chatPageViewModel.InitAsync(chatId);
+            await _chatPageViewModel.ConnectAsync(chatId);
             _chatPageViewModel.RefreshCommand.Execute(null);
-        }
-
-        private async void Entry_OnCompleted(object sender, EventArgs e)
-        {
-            await _chatPageViewModel.SendMyMessageAsync();
         }
 
         protected override async void OnDisappearing()
         {
             await _chatPageViewModel.ClearSessionAsync();
+        }
+        
+        private async void Entry_OnCompleted(object sender, EventArgs e)
+        {
+            await _chatPageViewModel.SendMyMessageAsync();
+            MessagesListView.ScrollTo(_chatPageViewModel.Messages.Last(), ScrollToPosition.End, true);
         }
     }
 }

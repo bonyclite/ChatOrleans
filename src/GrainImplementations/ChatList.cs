@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,20 @@ namespace GrainImplementations
         {
             return await _chatsRepository
                 .GetAll()
+                .Select(c => new ChatModel
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    IsPrivate = c.IsPrivate
+                })
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyCollection<ChatModel>> GetAllAsync(Guid userId)
+        {
+            return await _chatsRepository
+                .GetAll()
+                .Where(c => c.Users.Any(u => u.UserId == userId))
                 .Select(c => new ChatModel
                 {
                     Id = c.Id,

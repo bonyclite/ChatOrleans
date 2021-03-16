@@ -8,7 +8,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="3.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.0.1" />
-        <PackageReference Include="Microsoft.Orleans.OrleansSqlUtils" Version="2.4.4" />
+        <PackageReference Include="Microsoft.Orleans.OrleansSQLUtils" Version="2.4.5" />
         <PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" Version="3.0.1" />
         <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.0.1" />
         <PackageReference Include="Microsoft.Orleans.Server" Version="3.0.1" />

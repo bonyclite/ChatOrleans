@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Client.Xamarin.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Xamarin.Forms;
@@ -30,7 +29,7 @@ namespace Client.Xamarin.Views
 
             var chatPage = _serviceProvider.GetRequiredService<ChatPage>();
             await Navigation.PushAsync(chatPage); 
-            await chatPage.LoadHistoryAsync(chatId);
+            await chatPage.ConnectAsync(chatId);
         }
     }
 }

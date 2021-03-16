@@ -38,14 +38,17 @@ namespace API.Controllers
 
             var chatId = Guid.NewGuid();
             var chat = _clusterClient.GetGrain<IChat>(chatId);
-            await chat.Create(new ChatSettingsModel
+            
+            await chat.CreateAsync(new ChatSettingsModel
             {
                 Name = model.Name,
                 IsPrivate = model.IsPrivate,
                 OwnerNickName = user.GetPrimaryKeyString()
             });
+
+            await chat.JoinAsync(user);
             
-            return await chat.GetInfo();
+            return await chat.GetInfoAsync();
         }
     }
 }

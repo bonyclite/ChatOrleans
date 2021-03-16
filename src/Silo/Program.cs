@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using DAL;
 using GrainImplementations;
@@ -13,11 +14,39 @@ using Orleans.Hosting;
 
 namespace Silo
 {
-    class Program
+    internal class Program
     {
-        static Task Main(string[] args)
+        private const string Host = "localhost";
+        private const int Port = 5432;
+        private const string Name = "chatorleansdb";
+        private const string Password = "qwe123";
+        private const string User = "postgres";
+        private static string ConnectionString => $"Host={Host};Port={Port};Username={User};Password={Password};Database={Name};";
+        private static string GateWayConnectionString => $"Host=3.134.149.250;Port={Port};Username={User};Password={Password};Database=orleansDb;";
+
+        private static Task Main(params string[] args)
         {
-            var localHost = IPAddress.Parse("192.168.1.74");
+            var gateWayPort = 0;
+            var siloPort = 0;
+            var dashBoardPort = 0;
+
+            foreach (var s in args)
+            {
+                if (s.Contains("gateWayPort"))
+                {
+                    gateWayPort = Convert.ToInt32(s.Split("gateWayPort=").Last());
+                }
+                
+                if (s.Contains("siloPort"))
+                {
+                    siloPort = Convert.ToInt32(s.Split("siloPort=").Last());
+                }
+
+                if (s.Contains("dashBoardPort"))
+                {
+                    dashBoardPort = Convert.ToInt32(s.Split("dashBoardPort=").Last());
+                }
+            }
             
             return new HostBuilder()
                 .UseOrleans(builder =>
@@ -35,21 +64,16 @@ namespace Silo
                             options.Username = "username";
                             options.Password = "password";
                             options.Host = "*";
-                            options.Port = 8080;
+                            options.Port = dashBoardPort;
                             options.HostSelf = true;
                             options.CounterUpdateIntervalMs = 1000;
                         })
-                        .Configure<EndpointOptions>(options =>
+                        .ConfigureEndpoints(siloPort, gateWayPort, listenOnAnyHostAddress: true)
+                        .UseAdoNetClustering(options =>
                         {
-                            // Port to use for Silo-to-Silo
-                            options.SiloPort = 11111;
-                            // Port to use for the gateway
-                            options.GatewayPort = 228;
-                            // IP Address to advertise in the cluster
-                            options.AdvertisedIPAddress = localHost;
+                            options.Invariant = Constants.InvariantNamePostgreSql;
+                            options.ConnectionString = GateWayConnectionString;
                         })
-                        .UseDevelopmentClustering(options =>
-                            options.PrimarySiloEndpoint = new IPEndPoint(localHost, 11111))
                         .ConfigureApplicationParts(parts =>
                             parts.AddApplicationPart(typeof(User).Assembly).WithReferences());
                 })
@@ -73,18 +97,10 @@ namespace Silo
 
         private static void SetupContext(IServiceCollection services)
         {
-            const string host = "localhost";
-            const int port = 5432;
-            const string name = "chatorleansdb";
-            const string password = "qwe123";
-            const string user = "postgres";
-            
-            var connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={name};";
-            
             services.AddDbContext<ChatDbContext>(builder =>
                 builder
                     .EnableSensitiveDataLogging()
-                    .UseNpgsql(connectionString,
+                    .UseNpgsql(ConnectionString,
                         optionsBuilder =>
                             optionsBuilder.MigrationsAssembly(typeof(ChatDbContext).Assembly.FullName)));
         }

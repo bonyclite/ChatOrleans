@@ -1,4 +1,5 @@
 using System;
+using GrainInterfaces;
 using Plugin.Settings;
 
 namespace Client.Xamarin
@@ -7,6 +8,8 @@ namespace Client.Xamarin
     {
         private const string UserNickName = "userNickName";
         private const string UserId = "userId";
+        
+        private static IUser _user;
 
         public static Guid GetUserId()
         {
@@ -31,6 +34,16 @@ namespace Client.Xamarin
         public static bool IsLoggedIn()
         {
             return CrossSettings.Current.Contains(UserNickName) && CrossSettings.Current.Contains(UserId);
+        }
+
+        public static IUser GetUserGrain()
+        {
+            return _user;
+        }
+
+        public static void SetUserGrain(IUser user)
+        {
+            _user = user;
         }
     }
 }

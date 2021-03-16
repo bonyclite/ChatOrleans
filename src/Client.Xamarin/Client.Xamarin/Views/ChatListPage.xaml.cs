@@ -8,7 +8,7 @@ namespace Client.Xamarin.Views
 {
     public partial class ChatListPage : ContentPage
     {
-        private ChatListPageViewModel _pageViewModel;
+        private readonly ChatListPageViewModel _pageViewModel;
         private readonly IServiceProvider _serviceProvider;
 
         public ChatListPage(ChatListPageViewModel chatListPageViewModel
@@ -26,11 +26,16 @@ namespace Client.Xamarin.Views
             if (e.SelectedItem is ChatModel chatModel)
             {
                 var chatPage = _serviceProvider.GetRequiredService<ChatPage>();
-                await Navigation.PushAsync(chatPage); 
-                await chatPage.LoadHistoryAsync(chatModel.Id);
+                await Navigation.PushAsync(chatPage);
+                await chatPage.ConnectAsync(chatModel.Id);
             }
             
             ((ListView)sender).SelectedItem = null;
+        }
+
+        protected override void OnAppearing()
+        {
+            _pageViewModel?.RefreshCommand.Execute(null);
         }
 
         private async void ImageButton_OnClicked(object sender, EventArgs e)

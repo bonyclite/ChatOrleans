@@ -20,8 +20,6 @@ namespace Client.Xamarin.ViewModels
         {
             _client = client;
             Items = new ObservableCollection<ChatModel>();
-
-            RefreshCommand.Execute(null);
         }
 
         private async Task RefreshItemsAsync()
@@ -39,7 +37,7 @@ namespace Client.Xamarin.ViewModels
 
             var chatList = _client.GetGrain<IChatList>(Constants.ChatListId);
 
-            var chats = await chatList.GetAllAsync();
+            var chats = await chatList.GetAllAsync(LocalStore.GetUserId());
 
             foreach (var chat in chats)
             {

@@ -67,7 +67,7 @@ namespace Client.Xamarin.ViewModels
 
         public async Task ClearSessionAsync()
         {
-            await _chat.Disconnect(_clusterClient.GetGrain<IUser>(LocalStore.GetUserNickName()));
+            await _chat.Disconnect(LocalStore.GetUserGrain());
             _chat = null;
             Messages.Clear();
             
@@ -84,7 +84,7 @@ namespace Client.Xamarin.ViewModels
             }
         }
         
-        public async Task InitAsync(Guid chatId)
+        public async Task ConnectAsync(Guid chatId)
         {
             _chatId = chatId;
             
@@ -100,8 +100,7 @@ namespace Client.Xamarin.ViewModels
             var onlineCountMembersActionStream = streamProvider.GetStream<OnlineCountMembersModel>(chatId, Constants.ChatOnlineMembersNamespace);
             _onlineCountMembersSubscriptionHandle = await onlineCountMembersActionStream.SubscribeAsync(OnlineMemberChangedActionHandle);
             
-            var user = _clusterClient.GetGrain<IUser>(LocalStore.GetUserNickName());
-            await _chat.Connect(user);
+            await _chat.ConnectAsync(LocalStore.GetUserGrain());
         }
 
         private async Task RefreshItemsAsync()

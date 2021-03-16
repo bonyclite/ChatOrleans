@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using GrainInterfaces;
 using Orleans;
-using Plugin.Settings;
 
 namespace Client.Xamarin.ViewModels
 {
@@ -34,6 +33,7 @@ namespace Client.Xamarin.ViewModels
 
             LocalStore.SetNickName(nickName);
             LocalStore.SetUserId(await user.GetUserIdAsync());
+            LocalStore.SetUserGrain(user);
         }
     }
 }

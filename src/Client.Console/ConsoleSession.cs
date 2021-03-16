@@ -6,13 +6,15 @@ using GrainInterfaces.Models.Chat;
 using Orleans;
 using Orleans.Streams;
 using Utils;
+using static System.Console;
 
-namespace Client
+namespace Client.Console
 {
     public class ConsoleSession
     {
         private Guid _currentChat = Guid.Empty;
         private Guid _userId = Guid.Empty;
+        private IUser _user;
         private string _userNickname = "";
 
         private readonly IClusterClient _client;
@@ -29,10 +31,12 @@ namespace Client
             const ConsoleColor menuColor = ConsoleColor.Magenta;
 
             PrettyConsole.WriteLine("Type '/l <id>' to login", menuColor);
+            PrettyConsole.WriteLine("Type /menu to see menu list", menuColor);
             PrettyConsole.WriteLine("Type '/n <username>' to set your user name", menuColor);
             PrettyConsole.WriteLine("Type '/cj <chat>' to create and join specific chat", menuColor);
             PrettyConsole.WriteLine("Type '/j <chat>' to join specific chat", menuColor);
-            PrettyConsole.WriteLine("Type '/l' to leave specific chat", menuColor);
+            PrettyConsole.WriteLine("Type '/leave' to leave specific chat", menuColor);
+            PrettyConsole.WriteLine("Type '/invite' to invite user to specific chat", menuColor);
             PrettyConsole.WriteLine("Type '/conn' to connect specific chat", menuColor);
             PrettyConsole.WriteLine("Type '/disc' to disconnect from specific chat", menuColor);
             PrettyConsole.WriteLine("Type '/l' to leave specific chat", menuColor);
@@ -48,7 +52,7 @@ namespace Client
             string input;
             do
             {
-                input = Console.ReadLine();
+                input = ReadLine();
 
                 if (string.IsNullOrWhiteSpace(input)) continue;
 
@@ -57,6 +61,10 @@ namespace Client
                     if (input.StartsWith("/j"))
                     {
                         await JoinChat(Guid.Parse(input.Replace("/j", "").Trim()));
+                    }
+                    else if (input.StartsWith("/menu"))
+                    {
+                        PrintHints();
                     }
                     else if (input.StartsWith("/cj"))
                     {
@@ -90,15 +98,27 @@ namespace Client
                     {
                         await Disconnect();
                     }
+                    else if (input.StartsWith("/invite"))
+                    {
+                        await InviteAsync(input.Replace("/invite", "").Trim());
+                    }
                     else if (!input.StartsWith("/exit"))
                     {
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    WriteLine(e);
                 }
             } while (input != "/exit");
+        }
+
+        private async Task InviteAsync(string user)
+        {
+            var chat = _client.GetGrain<IChat>(_currentChat);
+            var invitedUser = _client.GetGrain<IUser>(user);
+
+            await chat.JoinAsync(_user, invitedUser);
         }
 
         public async Task ShowChats()
@@ -142,7 +162,7 @@ namespace Client
             var chatId = Guid.NewGuid();
             var chat = _client.GetGrain<IChat>(chatId);
 
-            await chat.Create(new ChatSettingsModel
+            await chat.CreateAsync(new ChatSettingsModel
             {
                 OwnerNickName = _userNickname,
                 Name = name
@@ -150,22 +170,21 @@ namespace Client
 
             PrettyConsole.WriteLine($"You are creating chat <{name}> with id <{chat.GetPrimaryKey()}>", ConsoleColor.Cyan);
             
-            await JoinTo(chat);
+            await JoinToAndConnect(chat);
         }
 
         public async Task JoinChat(Guid id)
         {
             var chat = _client.GetGrain<IChat>(id);
 
-            await JoinTo(chat);
+            await JoinToAndConnect(chat);
         }
         
         public async Task LeaveChat()
         {
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userNickname);
 
-            await chat.Leave(user);
+            await chat.Leave(_user);
             await _chatMessageSubscriptionHandle.UnsubscribeAsync();
             
             _currentChat = Guid.Empty;
@@ -181,9 +200,8 @@ namespace Client
         public async Task Disconnect()
         {
             var chat = _client.GetGrain<IChat>(_currentChat);
-            var user = _client.GetGrain<IUser>(_userNickname);
 
-            await chat.Disconnect(user);
+            await chat.Disconnect(_user);
             await _chatMessageSubscriptionHandle.UnsubscribeAsync();
             
             ClearConsoleAndPrintHints();
@@ -192,9 +210,8 @@ namespace Client
         public async Task ConnectTo(Guid chatId)
         {
             var chat = _client.GetGrain<IChat>(chatId);
-            var user = _client.GetGrain<IUser>(_userNickname);
 
-            await chat.Connect(user);
+            await chat.ConnectAsync(_user);
             
             var chatMessageStream = GetChatMessageStream(chat.GetPrimaryKey());
 
@@ -212,7 +229,7 @@ namespace Client
             _currentChat = chatId;
         }
         
-        private async Task JoinTo(IChat chat)
+        private async Task JoinToAndConnect(IChat chat)
         {
             var id = chat.GetPrimaryKey();
             
@@ -228,12 +245,10 @@ namespace Client
 
             _currentChat = id;
 
-            var user = _client.GetGrain<IUser>(_userNickname);
+            await chat.JoinAsync(_user);
+            await chat.ConnectAsync(_user);
 
-            await chat.Join(user);
-            await chat.Connect(user);
-
-            var info = await chat.GetInfo();
+            var info = await chat.GetInfoAsync();
             
             PrettyConsole.WriteLine($"You join to chat <{info.Name}>", ConsoleColor.Cyan);
             PrettyConsole.WriteLine($"Online count members: {await chat.GetOnlineCountMembersAsync()}");
@@ -243,6 +258,7 @@ namespace Client
         {
             _userNickname = user.GetPrimaryKeyString();
             _userId = await user.GetUserIdAsync();
+            _user = user;
 
             PrettyConsole.WriteLine($"Your nickname is {_userNickname}, id - {_userId}", ConsoleColor.Gray);
         }
@@ -264,7 +280,7 @@ namespace Client
 
         private void ClearConsoleAndPrintHints()
         {
-            Console.Clear();
+            Clear();
             PrintHints();
         }
 

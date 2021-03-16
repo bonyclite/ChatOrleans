@@ -41,7 +41,8 @@
                  Command="{Binding RefreshCommand, Mode=TwoWay}">
         <StackLayout Margin="10,35,10,10">
             <ScrollView>
-                <ListView ItemsSource="{Binding Messages, Mode=TwoWay}"
+                <ListView x:Name="MessagesListView"
+                          ItemsSource="{Binding Messages, Mode=TwoWay}"
                           ItemTemplate="{StaticResource ChatMessageTemplate}"
                           SelectionMode="None" />
             </ScrollView>

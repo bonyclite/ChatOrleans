@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using Client.Xamarin.ViewModels;
 using Client.Xamarin.Views;
 using GrainInterfaces;
@@ -7,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
-using Plugin.Settings;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
@@ -27,6 +25,9 @@ namespace Client.Xamarin
 
             if (LocalStore.IsLoggedIn())
             {
+                var clusterClient = _serviceProvider.GetRequiredService<IClusterClient>();
+                LocalStore.SetUserGrain(clusterClient.GetGrain<IUser>(LocalStore.GetUserNickName()));
+                
                 MainPage = new NavigationPage(_serviceProvider.GetRequiredService<ChatListPage>());
             }
             else
@@ -73,8 +74,6 @@ namespace Client.Xamarin
         
         private static IClusterClient CreateClusterClient(IServiceProvider serviceProvider)
         {
-            var localHost = IPAddress.Parse("192.168.1.74");
-
             var clusterClient = new ClientBuilder()
                 .Configure<ClusterOptions>(options =>
                 {
@@ -82,7 +81,11 @@ namespace Client.Xamarin
                     options.ServiceId = Constants.ServiceId;
                 })
                 .AddSimpleMessageStreamProvider(Constants.StreamProvider)
-                .UseStaticClustering(new IPEndPoint(localHost, 228))
+                .UseAdoNetClustering(options =>
+                {
+                    options.Invariant = Constants.InvariantNamePostgreSql;
+                    options.ConnectionString = GateWayConnectionString;
+                })
                 .ConfigureApplicationParts(parts =>
                     parts.AddApplicationPart(typeof(IUser).Assembly)
                         .WithReferences())
