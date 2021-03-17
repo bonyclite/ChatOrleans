@@ -25,7 +25,7 @@ namespace GrainImplementations
 
         private IAsyncStream<ChatMessageModel> _chatMessageStream;
         private IAsyncStream<OnlineCountMembersModel> _onlineCountMembersStream;
-        
+
         public Chat(IGenericRepository<DAL.Models.ChatModel> chatRepository
             , IGenericRepository<DAL.Models.ChatMessageModel> messagesRepository)
         {
@@ -36,9 +36,9 @@ namespace GrainImplementations
         public override async Task OnActivateAsync()
         {
             await FillStateAsync();
-            
-            RegisterTimer(o => SaveNewMessages(), null, TimeSpan.FromSeconds(30),TimeSpan.FromSeconds(30));
-            
+
+            RegisterTimer(o => SaveNewMessages(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
             await base.OnActivateAsync();
         }
 
@@ -53,7 +53,7 @@ namespace GrainImplementations
             var chat = await _chatRepository.GetById(this.GetPrimaryKey());
 
             var user = GrainFactory.GetGrain<IUser>(State.Settings.OwnerNickName);
-            
+
             if (chat == null)
             {
                 await _chatRepository.Create(new DAL.Models.ChatModel
@@ -110,9 +110,9 @@ namespace GrainImplementations
         public async Task SendMessage(ChatMessageModel message)
         {
             message.CreateDate = DateTime.UtcNow;
-            
+
             await _chatMessageStream.OnNextAsync(message);
-            
+
             State.NewMessages.Add(message);
             State.Messages.Add(message);
         }
@@ -199,8 +199,11 @@ namespace GrainImplementations
 
         public async Task Disconnect(IUser user)
         {
-            State.OnlineMembersCount--;
-            await SendOnlineCountMembers();
+            if (State.OnlineMembersCount > 0)
+            {
+                State.OnlineMembersCount--;
+                await SendOnlineCountMembers();
+            }
         }
 
         private async Task SendOnlineCountMembers()
@@ -239,14 +242,14 @@ namespace GrainImplementations
         private async Task InitStreamsAsync()
         {
             var streamProvider = GetStreamProvider(Constants.StreamProvider);
-            
+
             _chatMessageStream = streamProvider.GetStream<ChatMessageModel>(State.Id, Constants.ChatMessagesNamespace);
             _onlineCountMembersStream = streamProvider.GetStream<OnlineCountMembersModel>(State.Id, Constants.ChatOnlineMembersNamespace);
 
             var subscriptionHandles = await _chatMessageStream.GetAllSubscriptionHandles();
             State.OnlineMembersCount = subscriptionHandles.Count;
         }
-        
+
         private async Task FillStateAsync()
         {
             var chatId = this.GetPrimaryKey();
@@ -311,7 +314,7 @@ namespace GrainImplementations
                     CreateDate = newMessage.CreateDate
                 });
             }
-            
+
             State.NewMessages.RemoveAll();
         }
     }

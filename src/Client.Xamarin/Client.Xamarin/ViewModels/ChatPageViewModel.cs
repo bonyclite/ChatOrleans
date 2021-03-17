@@ -6,7 +6,6 @@ using GrainInterfaces;
 using GrainInterfaces.Models.Chat;
 using Orleans;
 using Orleans.Streams;
-using Plugin.Settings;
 using Xamarin.Forms;
 using ChatMessageModel = Client.Xamarin.Models.ChatMessageModel;
 
@@ -166,6 +165,11 @@ namespace Client.Xamarin.ViewModels
                 Text = CurrentMessage,
                 UserId = LocalStore.GetUserId()
             });
+        }
+
+        public async Task LeaveAsync()
+        {
+            await _chat.Leave(LocalStore.GetUserGrain());
         }
     }
 }

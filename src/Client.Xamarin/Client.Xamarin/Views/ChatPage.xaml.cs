@@ -36,5 +36,11 @@ namespace Client.Xamarin.Views
             await _chatPageViewModel.SendMyMessageAsync();
             MessagesListView.ScrollTo(_chatPageViewModel.Messages.Last(), ScrollToPosition.End, true);
         }
+
+        private async void MenuItem_OnClicked(object sender, EventArgs e)
+        {
+            await _chatPageViewModel.LeaveAsync();
+            await Navigation.PopToRootAsync(true);
+        }
     }
 }

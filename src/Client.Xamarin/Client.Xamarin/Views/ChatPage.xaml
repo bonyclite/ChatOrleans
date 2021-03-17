@@ -17,6 +17,13 @@
         
     </NavigationPage.TitleView>
 
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Order="Primary" 
+                     Text="Leave" 
+                     Priority="0"
+                     Clicked="MenuItem_OnClicked"/>
+    </ContentPage.ToolbarItems>
+    
     <ContentPage.Resources>
         <DataTemplate x:Key="ChatMessageTemplate" x:DataType="models:ChatMessageModel">
             <ViewCell>

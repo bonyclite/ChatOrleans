@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Client.Xamarin.Models;
@@ -41,6 +42,11 @@ namespace Client.Xamarin.ViewModels
 
             foreach (var chat in chats)
             {
+                if (Items.Any(c => c.Id == chat.Id))
+                {
+                    continue;
+                }
+                
                 Items.Add(new ChatModel
                 {
                     Id = chat.Id,
