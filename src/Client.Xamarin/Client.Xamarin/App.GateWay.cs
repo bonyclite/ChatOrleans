@@ -7,6 +7,5 @@ namespace Client.Xamarin
         private const string Password = "qwe123";
         private const string User = "postgres";
         private static string GateWayConnectionString => $"Host={Host};Port={Port};Username={User};Password={Password};Database=orleansDb;";
-
     }
 }

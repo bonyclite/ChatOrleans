@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using DAL;
 using GrainImplementations;
@@ -16,13 +17,13 @@ namespace Silo
 {
     internal class Program
     {
-        private const string Host = "localhost";
+        private const string Host = "3.134.149.250";
         private const int Port = 5432;
         private const string Name = "chatorleansdb";
         private const string Password = "qwe123";
         private const string User = "postgres";
         private static string ConnectionString => $"Host={Host};Port={Port};Username={User};Password={Password};Database={Name};";
-        private static string GateWayConnectionString => $"Host=3.134.149.250;Port={Port};Username={User};Password={Password};Database=orleansDb;";
+        private static string GateWayConnectionString => $"Host={Host};Port={Port};Username={User};Password={Password};Database=orleansDb;";
 
         private static Task Main(params string[] args)
         {

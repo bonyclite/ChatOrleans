@@ -16,6 +16,8 @@ namespace GrainImplementations
     [StorageProvider(ProviderName = Constants.PubSubStore)]
     public class User : Grain<UserState>, IUser
     {
+        private IAsyncStream<UserChatActionModel> _userChatActionStream;
+        
         private readonly IGenericRepository<UserModel> _usersRepository;
         private readonly IGenericRepository<UserChatModel> _userChatRepository;
 
@@ -48,9 +50,9 @@ namespace GrainImplementations
             
             var streamProvider = GetStreamProvider(Constants.StreamProvider);
 
-            var stream = streamProvider.GetStream<UserChatActionModel>(State.UserId,
+            _userChatActionStream = streamProvider.GetStream<UserChatActionModel>(State.UserId,
                 Constants.UsersChatActionsStreamNamespace);
-            await stream.SubscribeAsync(UserChatActionHandle);
+            await _userChatActionStream.SubscribeAsync(UserChatActionHandle);
 
             await base.OnActivateAsync();
         }

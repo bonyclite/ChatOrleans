@@ -37,7 +37,7 @@ namespace API
 
             services.AddSingleton(CreateClusterClient);
             
-            const string host = "localhost";
+            const string host = "3.134.149.250";
             const int port = 5432;
             const string name = "chatorleansdb";
             const string password = "qwe123";
